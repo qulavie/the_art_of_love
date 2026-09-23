@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Экскурсия по карте</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F4; --panel:#FFFFFF; --ink:#16202E; --muted:#5B6778; --line:#DCE1E8;
+  --accent:#1F4FD8; --accent-soft:#E3EAFB; --done:#2E9E6B;
+  --display:"Unbounded",system-ui,sans-serif; --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --card-w:460px; --side-w:360px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0F141C;--panel:#171E29;--ink:#E8ECF2;--muted:#95A0B0;--line:#273142;--accent:#6E93FF;--accent-soft:#1D2A48;--done:#4CC28E}
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--body);color:var(--ink);background:var(--bg);font-size:16px;line-height:1.55;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:var(--side-w) 1fr;height:100%}
+
+/* ---------- Sidebar: маршрут как вертикальная линия ---------- */
+.side{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+.side-head{padding:28px 24px 18px}
+.side-head h1{font-family:var(--display);font-weight:700;font-size:28px;line-height:1.1;margin:0 0 10px;letter-spacing:-.01em}
+.side-head p{margin:0;color:var(--muted);font-size:15px}
+.stats{display:flex;gap:18px;margin-top:14px;font-size:14px;color:var(--muted)}
+.stats b{display:block;color:var(--ink);font-family:var(--display);font-weight:500;font-size:17px}
+.start{margin-top:18px;width:100%;border:0;border-radius:12px;padding:13px 16px;background:var(--accent);color:#fff;font-weight:600}
+.progress{height:4px;background:var(--line);margin:0 24px;border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--done);transition:width .4s}
+
+.stops{list-style:none;margin:0;padding:14px 12px 28px;position:relative}
+.stop{position:relative}
+.stop button{display:grid;grid-template-columns:40px 1fr;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:12px;padding:10px 12px}
+.stop button:hover{background:var(--accent-soft)}
+.stop:not(:last-child)::after{content:"";position:absolute;left:31px;top:46px;bottom:-10px;width:2px;background:var(--line)}
+.stop.visited:not(:last-child)::after{background:var(--done)}
+.num{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:13px;font-weight:500;
+  background:var(--panel);border:2px solid var(--ink);position:relative;z-index:1;margin-left:4px}
+.stop.visited .num{background:var(--done);border-color:var(--done);color:#fff}
+.stop.active .num{background:var(--accent);border-color:var(--accent);color:#fff}
+.stop.active button{background:var(--accent-soft)}
+.stop h3{margin:3px 0 2px;font-size:16px;font-weight:600;line-height:1.3}
+.stop small{color:var(--muted);font-size:13.5px}
+
+/* ---------- Map stage ---------- */
+.stage{position:relative;min-height:0}
+#map{position:absolute;inset:0;background:var(--bg)}
+.notice{position:absolute;left:16px;top:16px;right:16px;max-width:520px;z-index:5;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:14px 16px;font-size:14.5px;box-shadow:0 8px 30px rgba(10,20,40,.15)}
+.notice code{background:var(--accent-soft);padding:1px 5px;border-radius:5px}
+
+/* Метки на карте (разметка через шаблон Яндекса) */
+.pin{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#fff;color:#16202E;
+  border:3px solid #16202E;display:grid;place-items:center;font:600 14px/1 "Unbounded",sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.25);transition:transform .2s}
+.pin.is-visited{background:#2E9E6B;border-color:#fff;color:#fff}
+.pin.is-active{background:#1F4FD8;border-color:#fff;color:#fff;transform:translate(-50%,-50%) scale(1.25)}
+
+/* ---------- Card ---------- */
+.card{position:absolute;top:16px;right:16px;bottom:16px;width:var(--card-w);max-width:calc(100% - 32px);z-index:10;background:var(--panel);
+  border-radius:22px;box-shadow:0 20px 60px rgba(10,20,40,.28);display:flex;flex-direction:column;overflow:hidden;
+  transform:translateX(calc(100% + 32px));transition:transform .35s cubic-bezier(.2,.8,.2,1);visibility:hidden}
+.card.open{transform:none;visibility:visible}
+.card-scroll{overflow-y:auto;flex:1}
+.gallery{position:relative;aspect-ratio:4/3;background:var(--line)}
+.shots{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.shots::-webkit-scrollbar{display:none}
+.shot{flex:0 0 100%;scroll-snap-align:start;position:relative;margin:0}
+.shot img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.shot figcaption{position:absolute;left:0;right:0;bottom:0;padding:28px 18px 12px;font-size:13px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.6))}
+.dots{position:absolute;top:14px;left:0;right:0;display:flex;justify-content:center;gap:6px}
+.dots span{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55)}
+.dots span.on{background:#fff}
+.close{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:20px;z-index:2}
+.card-body{padding:22px 26px 26px}
+.card-num{font-family:var(--display);font-weight:700;font-size:56px;line-height:1;color:var(--accent);margin:0 0 6px}
+.card-body h2{font-family:var(--display);font-weight:500;font-size:24px;line-height:1.2;margin:0 0 6px}
+.card-sub{color:var(--muted);margin:0 0 18px;font-size:15px}
+.card-body p.t{margin:0 0 14px;max-width:62ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:20px 0}
+.fact{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.fact span{display:block;font-size:12.5px;color:var(--muted)}
+.fact b{font-weight:600}
+.tip{background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-size:15px}
+.links{display:flex;gap:14px;margin-top:18px;flex-wrap:wrap;font-size:14.5px}
+.links a{color:var(--accent);font-weight:500}
+.card-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--panel)}
+.card-nav button{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px;font-weight:600}
+.card-nav .next{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.card-nav button:disabled{opacity:.35;cursor:default}
+
+.lightbox{position:fixed;inset:0;background:rgba(5,8,14,.92);display:none;place-items:center;z-index:100;padding:20px;cursor:zoom-out}
+.lightbox.open{display:grid}
+.lightbox img{max-width:100%;max-height:100%;border-radius:8px}
+
+/* ---------- Mobile ---------- */
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .stage{grid-row:1}
+  .side{grid-row:2;border-right:0;border-top:1px solid var(--line);max-height:42vh}
+  .side-head{padding:16px 18px 10px}
+  .side-head h1{font-size:21px}
+  .card{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:none;height:82%;border-radius:22px 22px 0 0;
+    transform:translateY(105%);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .card-num{font-size:44px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="side-head">
+      <h1 id="tourTitle"></h1>
+      <p id="tourSub"></p>
+      <div class="stats">
+        <div><b id="stCount"></b>остановок</div>
+        <div><b id="stDist">—</b>пешком</div>
+        <div><b id="stTime">—</b>в пути</div>
+      </div>
+      <button class="start" id="startBtn">Начать экскурсию</button>
+    </div>
+    <div class="progress"><i id="prog"></i></div>
+    <ol class="stops" id="stops"></ol>
+  </aside>
+
+  <main class="stage">
+    <div id="map"></div>
+    <div class="notice" id="notice" hidden></div>
+
+    <article class="card" id="card" aria-live="polite">
+      <div class="card-scroll" id="cardScroll">
+        <div class="gallery">
+          <div class="shots" id="shots"></div>
+          <div class="dots" id="dots"></div>
+          <button class="close" id="closeBtn" aria-label="Закрыть">×</button>
+        </div>
+        <div class="card-body" id="cardBody"></div>
+      </div>
+      <nav class="card-nav">
+        <button id="prevBtn">Назад</button>
+        <button class="next" id="nextBtn">Дальше</button>
+      </nav>
+    </article>
+  </main>
+</div>
+<div class="lightbox" id="lightbox"><img alt=""></div>
+
+<script>
+/* =====================================================================
+   НАСТРОЙКИ
+   Ключ: https://developer.tech.yandex.ru → «JavaScript API и HTTP Геокодер»
+   ===================================================================== */
+const YANDEX_API_KEY = "fc99140c-ddde-4834-a8b4-4b85973733f2";
+
+/* =====================================================================
+   ДАННЫЕ ЭКСКУРСИИ — меняйте только этот блок.
+   coords: [широта, долгота] (в Яндекс Картах: правый клик → «Что здесь?»)
+   images: положите файлы в папку img/ рядом с index.html.
+   Пока файлов нет, показываются аккуратные заглушки.
+   ===================================================================== */
+const TOUR = {
+  title: "Классический Петербург",
+  subtitle: "Пешая прогулка от Исаакия до Кунсткамеры",
+  routeMode: "pedestrian",           // "pedestrian" — по улицам, "straight" — прямыми линиями
+  stops: [
+    { title:"Исаакиевский собор", subtitle:"Колоннада с видом на город", coords:[59.9341,30.3062], duration:"30 мин",
+      images:[{src:"img/01-1.jpg",caption:"Собор с Исаакиевской площади"}],
+      text:["Собор строили сорок лет, с 1818 по 1858 год, по проекту Огюста Монферрана.",
+            "Высота собора около 101 метра. На колоннаду можно подняться и увидеть почти весь исторический центр."],
+      facts:[["Строительство","1818–1858"],["Архитектор","Монферран"]],
+      tip:"Начните с колоннады: сверху видно большую часть маршрута." },
+
+    { title:"Медный всадник", subtitle:"Сенатская площадь", coords:[59.9364,30.3022], duration:"10 мин",
+      images:[{src:"img/02-1.jpg",caption:"Памятник Петру I"}],
+      text:["Памятник Петру I работы Этьена Фальконе открыт в 1782 году.",
+            "Постаментом служит Гром-камень, огромный гранитный валун, доставленный из-под Лахты."],
+      facts:[["Открыт","1782"],["Скульптор","Фальконе"]] },
+
+    { title:"Адмиралтейство", subtitle:"Кораблик на шпиле", coords:[59.9375,30.3086], duration:"10 мин",
+      images:[{src:"img/03-1.jpg",caption:"Шпиль Адмиралтейства"}],
+      text:["Нынешнее здание построено по проекту Андреяна Захарова в 1806–1823 годах.",
+            "Кораблик на шпиле стал одним из главных символов Петербурга."],
+      facts:[["Перестройка","1806–1823"]] },
+
+    { title:"Дворцовая площадь", subtitle:"Зимний дворец и Эрмитаж", coords:[59.9390,30.3158], duration:"30 мин",
+      images:[{src:"img/04-1.jpg",caption:"Александровская колонна"}],
+      text:["Зимний дворец построен по проекту Франческо Растрелли в 1754–1762 годах. Сейчас в нём главный комплекс Эрмитажа.",
+            "Александровская колонна установлена в 1834 году и не закреплена на основании: она стоит за счёт собственного веса."],
+      facts:[["Дворец","1754–1762"],["Колонна","1834"]] },
+
+    { title:"Казанский собор", subtitle:"Колоннада на Невском", coords:[59.9343,30.3248], duration:"15 мин",
+      images:[{src:"img/05-1.jpg",caption:"Колоннада собора"}],
+      text:["Собор построен по проекту Андрея Воронихина в 1801–1811 годах.",
+            "Здесь похоронен фельдмаршал Михаил Кутузов."],
+      facts:[["Строительство","1801–1811"],["Архитектор","Воронихин"]] },
+
+    { title:"Спас на Крови", subtitle:"Канал Грибоедова", coords:[59.9400,30.3289], duration:"25 мин",
+      images:[{src:"img/06-1.jpg",caption:"Храм с канала"}],
+      text:["Храм стоит на месте, где в 1881 году был смертельно ранен император Александр II. Построен в 1883–1907 годах.",
+            "Внутри находится одно из крупнейших в Европе собраний мозаик: их площадь больше 7000 квадратных метров."],
+      facts:[["Строительство","1883–1907"],["Мозаики","7000+ м²"]] },
+
+    { title:"Марсово поле", subtitle:"Бывший плац", coords:[59.9434,30.3317], duration:"10 мин",
+      images:[{src:"img/07-1.jpg",caption:"Вечный огонь"}],
+      text:["Когда-то здесь проводили военные парады и смотры.",
+            "Вечный огонь на Марсовом поле, зажжённый в 1957 году, стал первым в СССР."],
+      facts:[["Вечный огонь","1957"]] },
+
+    { title:"Летний сад", subtitle:"Первый сад Петербурга", coords:[59.9447,30.3365], duration:"25 мин",
+      images:[{src:"img/08-1.jpg",caption:"Аллея со скульптурами"}],
+      text:["Сад заложен по указу Петра I в 1704 году.",
+            "Решётку со стороны Невы по проекту Юрия Фельтена считают одной из самых красивых в мире."],
+      facts:[["Основан","1704"]],
+      tip:"Дальше идите через Троицкий мост: с него открывается вид на Неву и крепость." },
+
+    { title:"Петропавловская крепость", subtitle:"Отсюда начался город", coords:[59.9500,30.3167], duration:"40 мин",
+      images:[{src:"img/09-1.jpg",caption:"Шпиль Петропавловского собора"}],
+      text:["Крепость заложена 27 мая 1703 года, и этот день считается днём основания Петербурга.",
+            "Каждый день в полдень с Нарышкина бастиона стреляет пушка."],
+      facts:[["Заложена","1703"],["Шпиль","122,5 м"]],
+      tip:"Постарайтесь прийти к 12:00, чтобы услышать полуденный выстрел." },
+
+    { title:"Стрелка Васильевского острова", subtitle:"Ростральные колонны", coords:[59.9440,30.3060], duration:"15 мин",
+      images:[{src:"img/10-1.jpg",caption:"Ростральные колонны и Биржа"}],
+      text:["Ансамбль Стрелки с Биржей Тома де Томона сложился в начале XIX века.",
+            "Ростральные колонны раньше служили маяками. По праздникам на них до сих пор зажигают огни."],
+      facts:[["Колонны","1810"]] },
+
+    { title:"Кунсткамера", subtitle:"Первый музей России", coords:[59.9415,30.3046], duration:"30 мин",
+      images:[{src:"img/11-1.jpg",caption:"Башня Кунсткамеры"}],
+      text:["Музей основан Петром I в 1714 году.",
+            "Здание с характерной башней построено в 1718–1734 годах, и в нём работала первая российская обсерватория."],
+      facts:[["Основан","1714"]] }
+  ]
+};
+
+/* =====================================================================
+   ДАЛЬШЕ — движок. Трогать не обязательно.
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const isMobile = () => matchMedia("(max-width:860px)").matches;
+const state = { current:-1, visited:new Set() };
+let map = null, placemarks = [];
+
+function placeholder(i, title){
+  const h = (215 + i*23) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(${h},55%,42%)"/><stop offset="1" stop-color="hsl(${(h+40)%360},60%,22%)"/></linearGradient></defs>
+    <rect width="800" height="600" fill="url(#g)"/>
+    <text x="48" y="330" font-family="Unbounded,sans-serif" font-size="220" font-weight="700" fill="rgba(255,255,255,.18)">${pad(i+1)}</text>
+    <text x="52" y="530" font-family="Golos Text,sans-serif" font-size="34" fill="rgba(255,255,255,.85)">${esc(title)} — добавьте фото</text></svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+
+/* ---------- Sidebar ---------- */
+function renderSidebar(){
+  $("tourTitle").textContent = TOUR.title;
+  $("tourSub").textContent = TOUR.subtitle;
+  $("stCount").textContent = TOUR.stops.length;
+  $("stops").innerHTML = TOUR.stops.map((s,i)=>`
+    <li class="stop" data-i="${i}">
+      <button><span class="num">${i+1}</span>
+        <span><h3>${esc(s.title)}</h3><small>${esc(s.subtitle)}${s.duration? " · "+esc(s.duration):""}</small></span>
+      </button></li>`).join("");
+  $("stops").querySelectorAll(".stop").forEach(li=> li.querySelector("button").onclick = ()=> openStop(+li.dataset.i));
+}
+function syncSidebar(){
+  $("stops").querySelectorAll(".stop").forEach(li=>{
+    const i = +li.dataset.i;
+    li.classList.toggle("active", i===state.current);
+    li.classList.toggle("visited", state.visited.has(i) && i!==state.current);
+    if(i===state.current) li.scrollIntoView({block:"nearest",behavior:"smooth"});
+  });
+  $("prog").style.width = (state.visited.size / TOUR.stops.length * 100) + "%";
+  $("startBtn").textContent = state.visited.size ? "Продолжить экскурсию" : "Начать экскурсию";
+}
+
+/* ---------- Card ---------- */
+function renderCard(i){
+  const s = TOUR.stops[i], [lat,lon] = s.coords;
+  const imgs = s.images?.length ? s.images : [{src:"",caption:""}];
+  $("shots").innerHTML = imgs.map(im=>`
+    <figure class="shot"><img src="${esc(im.src || placeholder(i,s.title))}" alt="${esc(im.caption||s.title)}" loading="lazy"
+      data-ph="${placeholder(i,s.title)}">${im.caption?`<figcaption>${esc(im.caption)}</figcaption>`:""}</figure>`).join("");
+  $("shots").querySelectorAll("img").forEach(img=>{
+    img.onerror = ()=>{ img.onerror=null; img.src = img.dataset.ph; };
+    img.onclick = ()=> openLightbox(img.src);
+  });
+  $("shots").scrollLeft = 0;
+  $("dots").innerHTML = imgs.length>1 ? imgs.map((_,k)=>`<span class="${k?"":"on"}"></span>`).join("") : "";
+
+  $("cardBody").innerHTML = `
+    <p class="card-num">${pad(i+1)}</p>
+    <h2>${esc(s.title)}</h2>
+    <p class="card-sub">${esc(s.subtitle)}${s.duration?" · "+esc(s.duration):""}</p>
+    ${(s.text||[]).map(t=>`<p class="t">${esc(t)}</p>`).join("")}
+    ${s.facts?.length?`<div class="facts">${s.facts.map(([k,v])=>`<div class="fact"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>`:""}
+    ${s.tip?`<div class="tip">${esc(s.tip)}</div>`:""}
+    <div class="links">
+      <a href="https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=pd" target="_blank" rel="noopener">Проложить маршрут сюда</a>
+      <a href="https://yandex.ru/maps/?pt=${lon},${lat}&z=17&l=map" target="_blank" rel="noopener">Открыть в Яндекс Картах</a>
+    </div>`;
+  $("cardScroll").scrollTop = 0;
+  $("prevBtn").disabled = i===0;
+  $("nextBtn").textContent = i===TOUR.stops.length-1 ? "Завершить" : "Дальше";
+}
+$("shots").addEventListener("scroll", e=>{
+  const k = Math.round(e.target.scrollLeft / e.target.clientWidth);
+  $("dots").querySelectorAll("span").forEach((d,j)=>d.classList.toggle("on", j===k));
+});
+
+function openStop(i){
+  if(i<0 || i>=TOUR.stops.length) return;
+  state.current = i; state.visited.add(i);
+  renderCard(i);
+  $("card").classList.add("open");
+  syncSidebar(); syncPins(); flyTo(i);
+}
+function closeCard(){
+  $("card").classList.remove("open");
+  state.current = -1; syncSidebar(); syncPins();
+}
+$("closeBtn").onclick = closeCard;
+$("prevBtn").onclick = ()=> openStop(state.current-1);
+$("nextBtn").onclick = ()=> state.current===TOUR.stops.length-1 ? (closeCard(), fitAll()) : openStop(state.current+1);
+$("startBtn").onclick = ()=>{
+  const next = TOUR.stops.findIndex((_,i)=>!state.visited.has(i));
+  openStop(next===-1 ? 0 : next);
+};
+document.addEventListener("keydown", e=>{
+  if($("lightbox").classList.contains("open")){ if(e.key==="Escape") $("lightbox").classList.remove("open"); return; }
+  if(state.current<0) return;
+  if(e.key==="Escape") closeCard();
+  if(e.key==="ArrowRight") $("nextBtn").click();
+  if(e.key==="ArrowLeft" && state.current>0) openStop(state.current-1);
+});
+function openLightbox(src){ $("lightbox").querySelector("img").src = src; $("lightbox").classList.add("open"); }
+$("lightbox").onclick = ()=> $("lightbox").classList.remove("open");
+
+/* ---------- Map ---------- */
+function loadYmaps(){
+  return new Promise((resolve,reject)=>{
+    const s = document.createElement("script");
+    s.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(YANDEX_API_KEY)}&lang=ru_RU`;
+    s.onload = ()=> window.ymaps ? ymaps.ready(resolve) : reject();
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function initMap(){
+  map = new ymaps.Map("map", { center: TOUR.stops[0].coords, zoom: 14, controls: ["zoomControl"] },
+                        { suppressMapOpenBlock: true });
+  const Pin = ymaps.templateLayoutFactory.createClass(
+    '<div class="pin{% if properties.active %} is-active{% endif %}{% if properties.visited %} is-visited{% endif %}">{{ properties.num }}</div>');
+
+  placemarks = TOUR.stops.map((s,i)=>{
+    const pm = new ymaps.Placemark(s.coords, { num:i+1, hintContent:s.title, active:false, visited:false },
+      { iconLayout: Pin, iconShape:{ type:"Circle", coordinates:[0,0], radius:20 }, hasBalloon:false, zIndex: 100 });
+    pm.events.add("click", ()=> openStop(i));
+    map.geoObjects.add(pm);
+    return pm;
+  });
+  drawRoute();
+  fitAll();
+}
+
+function drawRoute(){
+  const coords = TOUR.stops.map(s=>s.coords);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#1F4FD8";
+  const straight = ()=> map.geoObjects.add(new ymaps.Polyline(coords, {},
+      { strokeColor: accent, strokeWidth: 4, strokeOpacity: .85, strokeStyle: "shortdash", zIndex: 10 }));
+  if(TOUR.routeMode !== "pedestrian") return straight();
+
+  const route = new ymaps.multiRouter.MultiRoute(
+    { referencePoints: coords, params: { routingMode: "pedestrian", results: 1 } },
+    { boundsAutoApply:false, wayPointVisible:false, viaPointVisible:false, pinVisible:false,
+      routeActivePedestrianSegmentStrokeStyle:"solid", routeActivePedestrianSegmentStrokeColor: accent,
+      routeActivePedestrianSegmentStrokeWidth: 5, zIndex: 10 });
+  route.model.events.add("requestsuccess", ()=>{
+    const r = route.getActiveRoute(); if(!r) return;
+    $("stDist").textContent = r.properties.get("distance").text;
+    $("stTime").textContent = r.properties.get("duration").text;
+  });
+  route.model.events.add("requestfail", ()=>{ map.geoObjects.remove(route); straight(); });
+  map.geoObjects.add(route);
+}
+
+function syncPins(){
+  placemarks.forEach((pm,i)=>{
+    pm.properties.set({ active: i===state.current, visited: state.visited.has(i) && i!==state.current });
+    pm.options.set("zIndex", i===state.current ? 1000 : 100);
+  });
+}
+
+// Центрируем точку в видимой части карты: слева от карточки на десктопе, над шторкой на телефоне
+function flyTo(i){
+  if(!map) return;
+  const zoom = Math.max(map.getZoom(), 16), proj = map.options.get("projection");
+  const px = proj.toGlobalPixels(TOUR.stops[i].coords, zoom);
+  const off = isMobile() ? [0, $("map").clientHeight * 0.33] : [($("card").offsetWidth + 16) / 2, 0];
+  map.setCenter(proj.fromGlobalPixels([px[0]+off[0], px[1]+off[1]], zoom), zoom, { duration: 500 });
+}
+function fitAll(){
+  if(!map) return;
+  map.setBounds(ymaps.util.bounds.fromPoints(TOUR.stops.map(s=>s.coords)),
+                { checkZoomRange:true, zoomMargin: isMobile() ? 40 : [60,60,60,60], duration: 400 });
+}
+
+function notice(html){ $("notice").innerHTML = html; $("notice").hidden = false; }
+
+/* ---------- Start ---------- */
+renderSidebar(); syncSidebar();
+if(YANDEX_API_KEY.includes("ВСТАВЬТЕ")){
+  notice('Карта не загружена: укажите ключ в <code>YANDEX_API_KEY</code> в начале скрипта. Список остановок и карточки уже работают.');
+} else {
+  loadYmaps().then(initMap).catch(()=> notice("Не удалось загрузить Яндекс Карты. Проверьте ключ, интернет и ограничение ключа по домену (HTTP Referer)."));
+}
+</script>
+</body>
+</html>
