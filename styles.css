@@ -1,0 +1,752 @@
+:root {
+    --bg: #eef1f4;
+    --panel: #ffffff;
+    --ink: #16202e;
+    --muted: #5b6778;
+    --line: #dce1e8;
+    --accent: #1f4fd8;
+    --accent-soft: #e3eafb;
+    --done: #2e9e6b;
+    --display: "Unbounded", system-ui, sans-serif;
+    --body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --card-w: 460px;
+    --side-w: 360px;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0f141c;
+        --panel: #171e29;
+        --ink: #e8ecf2;
+        --muted: #95a0b0;
+        --line: #273142;
+        --accent: #6e93ff;
+        --accent-soft: #1d2a48;
+        --done: #4cc28e;
+    }
+}
+* {
+    box-sizing: border-box;
+}
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+body {
+    font-family: var(--body);
+    color: var(--ink);
+    background: var(--bg);
+    font-size: 16px;
+    line-height: 1.55;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.app {
+    display: grid;
+    grid-template-columns: var(--side-w) 1fr;
+    height: 100%;
+}
+
+/* ---------- Sidebar: маршрут как вертикальная линия ---------- */
+.side {
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.side-head {
+    padding: 28px 24px 18px;
+}
+.side-head h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 1.1;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+}
+.side-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+}
+.stats {
+    display: flex;
+    gap: 18px;
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--muted);
+}
+.stats b {
+    display: block;
+    color: var(--ink);
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 17px;
+}
+.start {
+    margin-top: 18px;
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 16px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+}
+.progress {
+    height: 4px;
+    background: var(--line);
+    margin: 0 24px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--done);
+    transition: width 0.4s;
+}
+
+.stops {
+    list-style: none;
+    margin: 0;
+    padding: 14px 12px 28px;
+    position: relative;
+}
+.stop {
+    position: relative;
+}
+.stop button {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+.stop button:hover {
+    background: var(--accent-soft);
+}
+.stop:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 31px;
+    top: 46px;
+    bottom: -10px;
+    width: 2px;
+    background: var(--line);
+}
+.stop.visited:not(:last-child)::after {
+    background: var(--done);
+}
+.num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--panel);
+    border: 2px solid var(--ink);
+    position: relative;
+    z-index: 1;
+    margin-left: 4px;
+}
+.stop.visited .num {
+    background: var(--done);
+    border-color: var(--done);
+    color: #fff;
+}
+.stop.active .num {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+.stop.active button {
+    background: var(--accent-soft);
+}
+.stop h3 {
+    margin: 3px 0 2px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.stop small {
+    color: var(--muted);
+    font-size: 13.5px;
+}
+
+/* ---------- Map stage ---------- */
+.stage {
+    position: relative;
+    min-height: 0;
+}
+#map {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+}
+.notice {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    right: 16px;
+    max-width: 520px;
+    z-index: 5;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 14.5px;
+    box-shadow: 0 8px 30px rgba(10, 20, 40, 0.15);
+}
+.notice code {
+    background: var(--accent-soft);
+    padding: 1px 5px;
+    border-radius: 5px;
+}
+
+/* Метки на карте (разметка через шаблон Яндекса) */
+.pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fff;
+    color: #16202e;
+    border: 3px solid #16202e;
+    display: grid;
+    place-items: center;
+    font:
+        600 14px/1 "Unbounded",
+        sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s;
+}
+.pin.is-visited {
+    background: #2e9e6b;
+    border-color: #fff;
+    color: #fff;
+}
+.pin.is-active {
+    background: #1f4fd8;
+    border-color: #fff;
+    color: #fff;
+    transform: translate(-50%, -50%) scale(1.25);
+}
+
+/* Транспорт на карте */
+.tbadge {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    background: #fff;
+    color: #16202e;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 3px solid #6b7280;
+    font:
+        600 12px/1.1 "Golos Text",
+        sans-serif;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+}
+.tstop {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid #6b7280;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+.tdot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #6b7280;
+    pointer-events: none;
+}
+
+/* Переключатели способа передвижения */
+.seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 10px;
+    background: var(--bg);
+}
+.seg button {
+    border: 0;
+    background: none;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.seg button.on {
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.leg {
+    padding: 0 12px 8px 56px;
+}
+.leg:empty {
+    display: none;
+}
+.leg-info {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* ---------- Card ---------- */
+.card {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: var(--card-w);
+    max-width: calc(100% - 32px);
+    z-index: 10;
+    background: var(--panel);
+    border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(10, 20, 40, 0.28);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateX(calc(100% + 32px));
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    visibility: hidden;
+}
+.card.open {
+    transform: none;
+    visibility: visible;
+}
+/* Свёрнутая карточка: остаётся полоска-ручка у правого края */
+.card.open.collapsed {
+    transform: translateX(calc(100% - 44px));
+}
+.peek {
+    position: absolute;
+    z-index: 3;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 120px;
+    border: 0;
+    border-radius: 0 14px 14px 0;
+    background: var(--panel);
+    box-shadow: 0 4px 14px rgba(10, 20, 40, 0.18);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    touch-action: none;
+}
+.peek-grip {
+    width: 4px;
+    height: 36px;
+    border-radius: 2px;
+    background: var(--muted);
+    opacity: 0.6;
+}
+.card-scroll {
+    overflow-y: auto;
+    flex: 1;
+}
+.gallery {
+    position: relative;
+    aspect-ratio: 4/3;
+    background: var(--line);
+}
+.shots {
+    display: flex;
+    height: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+}
+.shots::-webkit-scrollbar {
+    display: none;
+}
+.shot {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    position: relative;
+    margin: 0;
+}
+.shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    cursor: zoom-in;
+}
+.shot figcaption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 28px 18px 12px;
+    font-size: 13px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+}
+.dots {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+.dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+}
+.dots span.on {
+    background: #fff;
+}
+.close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    font-size: 20px;
+    z-index: 2;
+}
+.card-body {
+    padding: 22px 26px 26px;
+}
+.card-num {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--accent);
+    margin: 0 0 6px;
+}
+.card-body h2 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 24px;
+    line-height: 1.2;
+    margin: 0 0 6px;
+}
+.card-sub {
+    color: var(--muted);
+    margin: 0 0 18px;
+    font-size: 15px;
+}
+.card-body p.t {
+    margin: 0 0 14px;
+    max-width: 62ch;
+}
+.facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 20px 0;
+}
+.fact {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+.fact span {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+.fact b {
+    font-weight: 600;
+}
+.tip {
+    background: var(--accent-soft);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 15px;
+}
+.links {
+    display: flex;
+    gap: 14px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+    font-size: 14.5px;
+}
+.links a {
+    color: var(--accent);
+    font-weight: 500;
+}
+.enter {
+    margin: 4px 0 0;
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 16px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+}
+
+.exlist {
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 0;
+}
+.exlist button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+.exlist button:hover {
+    background: var(--accent-soft);
+}
+.exlist b {
+    color: var(--accent);
+    font-family: var(--display);
+    margin-right: 8px;
+}
+.exlist small {
+    display: block;
+    color: var(--muted);
+    font-weight: 400;
+}
+
+/* План этажа музея */
+.plan {
+    margin-top: 18px;
+}
+.plan .seg {
+    margin-bottom: 10px;
+}
+.plan-box {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    cursor: zoom-in;
+}
+.planfs {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(5, 8, 14, 0.92);
+    display: none;
+    place-items: center;
+    padding: 20px;
+    cursor: zoom-out;
+}
+.planfs.open {
+    display: grid;
+}
+.planfs-inner {
+    width: 100%;
+    max-width: 1400px;
+}
+.planfs-inner .plan-box {
+    cursor: zoom-out;
+}
+.plan-box img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.plan-box svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.plan-box marker path {
+    fill: var(--accent);
+}
+.plan-box .back {
+    fill: none;
+    stroke: #8a94a6;
+    stroke-width: 8;
+    opacity: 0.8;
+}
+.plan-box .fwd {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    marker-end: url(#arw);
+}
+.plan-box .room {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 8;
+    stroke-opacity: 0.7;
+}
+.plan-box .room.done {
+    fill: rgba(46, 158, 107, 0.28);
+    stroke: var(--done);
+    stroke-opacity: 1;
+}
+.plan-box .room.cur {
+    fill: rgba(31, 79, 216, 0.22);
+    stroke: var(--accent);
+    stroke-width: 14;
+    stroke-opacity: 1;
+}
+.plan-box .ext {
+    stroke: var(--accent);
+    stroke-width: 6;
+    marker-end: url(#arw);
+}
+.plan-box .extl {
+    font-family: var(--body);
+    font-size: 36px;
+    font-weight: 600;
+    fill: var(--accent);
+}
+.plan-note {
+    margin: 10px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+.card-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+}
+.card-nav button {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px;
+    font-weight: 600;
+}
+.card-nav .next {
+    background: var(--ink);
+    color: var(--panel);
+    border-color: var(--ink);
+}
+.card-nav button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 14, 0.92);
+    display: none;
+    place-items: center;
+    z-index: 100;
+    padding: 20px;
+    cursor: zoom-out;
+}
+.lightbox.open {
+    display: grid;
+}
+.lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 860px) {
+    .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+    .stage {
+        grid-row: 1;
+    }
+    .side {
+        grid-row: 2;
+        border-right: 0;
+        border-top: 1px solid var(--line);
+        max-height: 42vh;
+    }
+    .side-head {
+        padding: 16px 18px 10px;
+    }
+    .side-head h1 {
+        font-size: 21px;
+    }
+    .card {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        width: 100%;
+        max-width: none;
+        height: 82%;
+        border-radius: 22px 22px 0 0;
+        transform: translateY(105%);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .card.open.collapsed {
+        transform: translateY(calc(100% - 30px));
+    }
+    .peek {
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 30px;
+        border-radius: 0 0 14px 14px;
+    }
+    .peek-grip {
+        width: 40px;
+        height: 4px;
+    }
+    .card-num {
+        font-size: 44px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
